@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: edu-ai
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: AI_TEMPERATURE
+        value: 0.65
+      - key: ENABLE_WEB_SEARCH
+        value: true
+      # Add your API keys in Render dashboard:
+      # - GROQ_API_KEY
+      # - OPENAI_API_KEY (optional)
+      # - TAVILY_API_KEY (optional)
+      # - SUPABASE_URL (optional)
+      # - SUPABASE_ANON_KEY (optional)
+

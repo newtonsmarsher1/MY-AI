@@ -2,8 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="EDU AI - Intelligent AI assistant for answering questions">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="EDU AI">
+    <meta name="mobile-web-app-capable" content="yes">
+    
     <title>EDU AI assistant</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -510,6 +526,29 @@
         .dot:nth-child(2) { animation-delay: 0.15s; }
         .dot:nth-child(3) { animation-delay: 0.3s; }
 
+        .streaming-cursor {
+            display: inline-block;
+            animation: blink 1s infinite;
+            margin-left: 2px;
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        .bubble[data-streaming="true"] {
+            transition: opacity 0.1s ease;
+        }
+
+        .bubble {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            will-change: contents;
+        }
+
         .meta {
             font-size: 0.85rem;
             color: var(--muted);
@@ -915,7 +954,6 @@
 
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = true;
-            const loadingId = addMessage('', 'assistant', true);
             const start = performance.now();
             const attachmentsPayload = attachmentsState.map(att => ({
                 name: att.name,
@@ -924,27 +962,111 @@
                 size: att.size
             }));
 
+            // Create streaming message bubble with smooth typewriter effect
+            const messageId = addStreamingMessage();
+            let fullAnswer = '';
+            let displayedText = '';
+            let pendingText = '';
+            let currentProvider = null;
+            let typewriterActive = false;
+            let typewriterFrame = null;
+
+            // Smooth typewriter animation
+            function animateTypewriter() {
+                if (!typewriterActive || pendingText.length === 0) {
+                    typewriterActive = false;
+                    return;
+                }
+
+                // Add characters gradually (2-4 chars per frame for smooth, natural feel)
+                const charsToAdd = Math.min(2 + Math.floor(Math.random() * 3), pendingText.length);
+                displayedText += pendingText.substring(0, charsToAdd);
+                pendingText = pendingText.substring(charsToAdd);
+                
+                updateStreamingMessage(messageId, displayedText);
+                
+                // Continue animation if there's more text
+                if (pendingText.length > 0) {
+                    typewriterFrame = requestAnimationFrame(() => {
+                        setTimeout(animateTypewriter, 20); // Slightly longer delay for softer feel
+                    });
+                } else {
+                    typewriterActive = false;
+                }
+            }
+
+            function queueText(text) {
+                pendingText += text;
+                if (!typewriterActive) {
+                    typewriterActive = true;
+                    animateTypewriter();
+                }
+            }
+
             try {
-                const response = await fetch('/ask', {
+                const response = await fetch('/ask/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ question, attachments: attachmentsPayload })
                 });
-                const data = await response.json();
-                const latency = performance.now() - start;
-                updateLatency(latency);
 
-                removeMessage(loadingId);
-                if (data.error) {
-                    addMessage('Error: ' + data.answer, 'assistant', false, true);
-                } else {
-                    addMessage(data.answer, 'assistant');
-                    updateProvider(data.provider || document.body.dataset.provider || 'none');
-                    clearAttachments();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.type === 'chunk') {
+                                    fullAnswer += data.content;
+                                    queueText(data.content); // Queue for smooth display
+                                    if (data.provider && !currentProvider) {
+                                        currentProvider = data.provider;
+                                        updateProvider(data.provider);
+                                    }
+                                } else if (data.type === 'done') {
+                                    // Wait for typewriter to finish displaying all text, then finalize
+                                    const checkComplete = setInterval(() => {
+                                        if (!typewriterActive && pendingText.length === 0 && displayedText.length >= fullAnswer.length * 0.95) {
+                                            clearInterval(checkComplete);
+                                            // Ensure all text is displayed
+                                            displayedText = fullAnswer;
+                                            finalizeStreamingMessage(messageId, fullAnswer);
+                                            if (data.provider) {
+                                                updateProvider(data.provider);
+                                            }
+                                            const latency = performance.now() - start;
+                                            updateLatency(latency);
+                                            clearAttachments();
+                                        }
+                                    }, 100);
+                                } else if (data.type === 'error') {
+                                    if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
+                                    finalizeStreamingMessage(messageId, 'Error: ' + data.content, true);
+                                }
+                            } catch (e) {
+                                console.error('Parse error:', e);
+                            }
+                        }
+                    }
                 }
             } catch (error) {
-                removeMessage(loadingId);
-                addMessage('Error: ' + error.message, 'assistant', false, true);
+                if (typewriterFrame) cancelAnimationFrame(typewriterFrame);
+                finalizeStreamingMessage(messageId, 'Error: ' + error.message, true);
             } finally {
                 sendBtn.disabled = false;
             }
@@ -974,6 +1096,53 @@
             container.appendChild(message);
             scrollChatToBottom();
             return id;
+        }
+
+        function addStreamingMessage() {
+            const container = document.getElementById('chatMessages');
+            const id = 'msg-' + Date.now();
+
+            const message = document.createElement('div');
+            message.className = 'message assistant';
+            message.id = id;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            bubble.innerHTML = '<span class="streaming-cursor">▊</span>';
+            bubble.dataset.streaming = 'true';
+
+            message.appendChild(bubble);
+            container.appendChild(message);
+            scrollChatToBottom();
+            return id;
+        }
+
+        function updateStreamingMessage(messageId, content) {
+            const message = document.getElementById(messageId);
+            if (!message) return;
+            
+            const bubble = message.querySelector('.bubble');
+            if (!bubble) return;
+            
+            bubble.innerHTML = formatText(content) + '<span class="streaming-cursor">▊</span>';
+            scrollChatToBottom();
+        }
+
+        function finalizeStreamingMessage(messageId, content, isError = false) {
+            const message = document.getElementById(messageId);
+            if (!message) return;
+            
+            const bubble = message.querySelector('.bubble');
+            if (!bubble) return;
+            
+            bubble.dataset.streaming = 'false';
+            if (isError) {
+                bubble.classList.add('error');
+                bubble.textContent = content;
+            } else {
+                bubble.innerHTML = formatText(content);
+            }
+            scrollChatToBottom();
         }
 
         function scrollChatToBottom() {
@@ -1241,6 +1410,29 @@
             if (!target) return;
             target.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/service-worker.js')
+                    .then((registration) => {
+                        console.log('ServiceWorker registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('ServiceWorker registration failed:', error);
+                    });
+            });
+        }
+
+        // Prevent zoom on double tap (mobile)
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', (event) => {
+            const now = Date.now();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
     </script>
     <script type="module">
         import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
