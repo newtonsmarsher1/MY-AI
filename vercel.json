@@ -1,8 +1,8 @@
 {
   "version": 2,
   "functions": {
-    "api/index.py": {
-      "runtime": "vercel-python@3.11",
+    "api/**/*.py": {
+      "runtime": "@vercel/[email protected]",
       "maxDuration": 60,
       "memory": 1024
     }
