@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EDU AI assistant</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: radial-gradient(circle at top, #f9fbff, #eef3ff 55%, #e7f7ff);
+            --card: rgba(255, 255, 255, 0.85);
+            --text: #101828;
+            --muted: #64748b;
+            --accent: #2563eb;
+            --border: rgba(148, 163, 184, 0.3);
+            --shadow: 0 20px 60px rgba(15, 23, 42, 0.07);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .shell {
+            width: min(1400px, 100%);
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 24px;
+        }
+
+        .chat-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            position: sticky;
+            top: 24px;
+            height: calc(100vh - 48px);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .hamburger {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--card);
+            cursor: pointer;
+            padding: 10px;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .hamburger:hover {
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .hamburger span {
+            width: 20px;
+            height: 2px;
+            background: var(--text);
+            border-radius: 2px;
+        }
+
+        .mobile-toggle {
+            display: none;
+        }
+
+        .new-chat {
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 12px 18px;
+            background: rgba(37, 99, 235, 0.08);
+            color: var(--accent);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .new-chat:hover {
+            background: rgba(37, 99, 235, 0.15);
+        }
+
+        .profile-card {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border-radius: 20px;
+            border: 1px dashed var(--border);
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .profile-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            background: rgba(37, 99, 235, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--accent);
+            overflow: hidden;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-info {
+            flex: 1;
+        }
+
+        .profile-info p {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .profile-upload-btn {
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-top: 6px;
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 4px;
+        }
+
+        .conversation {
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .conversation.active {
+            border-color: rgba(37, 99, 235, 0.3);
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        .conversation:hover {
+            border-color: var(--border);
+        }
+
+        .sidebar-footer {
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .main-panel {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            position: relative;
+        }
+
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(2px);
+            z-index: 9;
+        }
+
+        .sidebar-overlay.visible {
+            display: block;
+        }
+
+        .auth-guard {
+            position: absolute;
+            inset: 0;
+            border-radius: 32px;
+            background: rgba(248, 250, 255, 0.92);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 4;
+        }
+
+        .auth-guard.hidden {
+            display: none;
+        }
+
+        .auth-card {
+            width: min(420px, 90%);
+            background: #fff;
+            border-radius: 28px;
+            padding: 28px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            text-align: center;
+        }
+
+        .auth-card h3 {
+            font-size: 1.35rem;
+            font-weight: 600;
+        }
+
+        .auth-status {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        .auth-status.error {
+            color: #b91c1c;
+        }
+
+        .auth-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .oauth-btn {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 12px 18px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            transition: border 0.2s ease, background 0.2s ease;
+        }
+
+        .oauth-btn.google {
+            border-color: rgba(251, 191, 36, 0.4);
+        }
+
+        .oauth-btn.github {
+            border-color: rgba(15, 23, 42, 0.4);
+        }
+
+        .oauth-btn.secondary {
+            border-style: dashed;
+            font-weight: 500;
+        }
+
+        .oauth-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .phone-auth {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            text-align: left;
+        }
+
+        .phone-auth input {
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            padding: 10px 14px;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .phone-auth .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .phone-auth button {
+            flex: 1;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-radius: 18px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .brand h1 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .brand p {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .status {
+            display: flex;
+            gap: 10px;
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--muted);
+        }
+
+        .badge.active {
+            color: #16a34a;
+            border-color: rgba(22, 163, 74, 0.4);
+        }
+
+        .surface {
+            flex: 1;
+            border-radius: 32px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: var(--shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .welcome {
+            padding: 48px 48px 0;
+        }
+
+        .welcome h2 {
+            font-size: 2.2rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .welcome p {
+            color: var(--muted);
+        }
+
+        .chips {
+            padding: 28px 48px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chip {
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .chip:hover {
+            border-color: rgba(37, 99, 235, 0.4);
+            color: var(--accent);
+        }
+
+        .chat {
+            flex: 1;
+            padding: 32px 48px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow-y: auto;
+        }
+
+        .message {
+            display: flex;
+            gap: 14px;
+            max-width: 720px;
+            animation: fade 0.2s ease;
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+            margin-left: auto;
+        }
+
+        .bubble {
+            padding: 16px 18px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            line-height: 1.65;
+            flex: 1;
+        }
+
+        .message.user .bubble {
+            background: rgba(228, 235, 255, 0.9);
+            border-color: rgba(37, 99, 235, 0.2);
+        }
+
+        .bubble.error {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(254, 226, 226, 0.8);
+            color: #b91c1c;
+        }
+
+        .input-area {
+            padding: 24px 32px 32px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            border-radius: 999px;
+            background: #fff;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            padding: 6px;
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            resize: none;
+            padding: 14px 20px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: transparent;
+            color: var(--text);
+        }
+
+        textarea:focus {
+            outline: none;
+        }
+
+        .send-button {
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            border-radius: 50%;
+            width: 46px;
+            height: 46px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .send-button:disabled {
+            background: rgba(37, 99, 235, 0.3);
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: flex;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            animation: bounce 1.4s infinite;
+        }
+
+        .dot:nth-child(2) { animation-delay: 0.15s; }
+        .dot:nth-child(3) { animation-delay: 0.3s; }
+
+        .meta {
+            font-size: 0.85rem;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .attachment-bar {
+            margin-top: 18px;
+            border: 1px dashed var(--border);
+            border-radius: 18px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .attach-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .attach-btn {
+            border: none;
+            background: rgba(37, 99, 235, 0.1);
+            color: var(--accent);
+            border-radius: 16px;
+            padding: 10px 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .attachment-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .attachment-helper {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .attachment-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(248, 250, 255, 0.9);
+        }
+
+        .attachment-thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: rgba(148, 163, 184, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .attachment-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .attachment-placeholder {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        .attachment-remove {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        @keyframes fade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        @media (max-width: 1024px) {
+            .shell {
+                grid-template-columns: 1fr;
+            }
+
+            .chat-sidebar {
+                position: fixed;
+                inset: 16px;
+                transform: translateX(-120%);
+                opacity: 0;
+                pointer-events: none;
+                z-index: 10;
+            }
+
+            .chat-sidebar.open {
+                transform: translateX(0);
+                opacity: 1;
+                pointer-events: auto;
+            }
+
+            .mobile-toggle {
+                display: flex;
+            }
+
+            .main-panel {
+                width: 100%;
+            }
+
+            #sidebarOpen {
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 11;
+            }
+
+            #sidebarClose {
+                align-self: flex-start;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+            header, .chips, .chat, .welcome {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body
+    data-provider="{{ provider or 'none' }}"
+    data-ollama="{{ 'true' if ollama_available else 'false' }}"
+    data-groq="{{ 'true' if groq_available else 'false' }}"
+    data-openai="{{ 'true' if openai_available else 'false' }}"
+    data-auth-required="{{ 'true' if auth_required else 'false' }}"
+>
+    <div class="shell">
+        <aside class="chat-sidebar" id="chatSidebar">
+            <div class="sidebar-header">
+                <div>
+                    <h2>EDU AI</h2>
+                    <p>Workspace</p>
+                </div>
+                <button class="hamburger mobile-toggle" id="sidebarClose" aria-label="Close sidebar">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            <div class="profile-card">
+                <div class="profile-avatar">
+                    <img id="profilePreview" alt="Profile preview" class="hidden">
+                    <span id="profileInitials">You</span>
+                </div>
+                <div class="profile-info">
+                    <p>Upload a quick selfie or logo.</p>
+                    <button class="profile-upload-btn" id="profileUploadBtn">Upload photo</button>
+                </div>
+                <input type="file" id="profileInput" accept="image/*" class="hidden">
+            </div>
+            <button class="new-chat" onclick="startNewChat()">＋ New chat</button>
+            <div class="conversation-list" id="conversationList">
+                <div class="conversation active">
+                    <strong>Current chat</strong>
+                    <p>Ask anything...</p>
+                </div>
+                <div class="conversation">
+                    <strong>Study tips</strong>
+                    <p>Flashcards and methods</p>
+                </div>
+                <div class="conversation">
+                    <strong>Meal plan</strong>
+                    <p>Vegetarian macros</p>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <p>Providers update live.</p>
+                <p>Powered by Smarshclouds.</p>
+            </div>
+        </aside>
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <div class="main-panel">
+            <header>
+                <button class="hamburger mobile-toggle" id="sidebarOpen" aria-label="Open sidebar">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="brand">
+                    <h1>EDU AI</h1>
+                    <p>Simple AI workspace</p>
+                </div>
+                <div class="status">
+                    <div class="badge" id="ollamaBadge">Ollama</div>
+                    <div class="badge" id="groqBadge">Groq</div>
+                    <div class="badge" id="openaiBadge">OpenAI</div>
+                </div>
+            </header>
+
+            <section class="surface">
+                <div class="welcome" id="welcomeSection">
+                    <h2>How can I help?</h2>
+                    <p>Ask anything or pick a suggestion below.</p>
+                </div>
+
+                <div class="chips" id="chipsSection">
+                    <button class="chip" onclick="usePrompt('Summarize the latest AI breakthroughs in 2 sentences.')">Latest AI</button>
+                    <button class="chip" onclick="usePrompt('Explain Kubernetes like I am new to DevOps.')">Explain DevOps</button>
+                    <button class="chip" onclick="usePrompt('Plan a 7-day high-protein vegetarian meal plan.')">Meal plan</button>
+                    <button class="chip" onclick="usePrompt('Debug: Flask endpoint returning 500 on POST /ask.')">Debug Flask</button>
+                </div>
+
+                <div class="chat" id="chatMessages">
+                    <div class="message assistant" id="welcomeScreen">
+                        <div class="bubble">
+                            Hello! I’m ready whenever you are. Ask me about code, life, or ideas.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea
+                            id="questionInput"
+                            rows="1"
+                            placeholder="Message EDU AI..."
+                            onkeydown="handleKeyDown(event)"
+                            oninput="autoGrow(this)"
+                        ></textarea>
+                        <button class="send-button" id="sendBtn" onclick="askQuestion()" disabled>
+                            ➤
+                        </button>
+                    </div>
+                <div class="attachment-bar">
+                    <div class="attach-actions">
+                        <button class="attach-btn" id="attachBtn" type="button">📎 Attach files or pictures</button>
+                        <span class="attachment-helper">Supported: PNG, JPG, PDF, DOCX, ZIP (max 5 MB per file)</span>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" multiple accept=".png,.jpg,.jpeg,.gif,.pdf,.txt,.doc,.docx,.ppt,.pptx,.zip">
+                    <div class="attachment-list" id="attachmentList">
+                        <span class="attachment-placeholder">No files attached.</span>
+                    </div>
+                </div>
+                    <div class="meta">
+                        <p>POWERED BY: Smarshclouds.com</p>
+                        <span>Provider: <span id="">newtonsmarsher</span></span> ·
+                        <span>Latency: <span id="latencyValue">—</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="auth-guard {% if not auth_required %}hidden{% endif %}" id="authGuard">
+                <div class="auth-card">
+                    <h3>Sign in to start chatting</h3>
+                    <p class="auth-status" id="authStatus" aria-live="polite">
+                        Use Google, GitHub, or SMS to verify your identity.
+                    </p>
+                    <div class="auth-actions">
+                        <button class="oauth-btn google" id="googleSignIn">Continue with Google</button>
+                        <button class="oauth-btn github" id="githubSignIn">Continue with GitHub</button>
+                    </div>
+                    <div class="phone-auth">
+                        <label for="phoneInput">Or verify with your phone number</label>
+                        <input type="tel" id="phoneInput" placeholder="+1 555 000 0000" autocomplete="tel">
+                        <div class="actions">
+                            <button class="oauth-btn secondary" id="sendOtpBtn">Send code</button>
+                            <button class="oauth-btn secondary" id="verifyOtpBtn">Verify code</button>
+                        </div>
+                        <input type="text" id="otpInput" placeholder="Enter 6-digit code" inputmode="numeric" maxlength="6">
+                    </div>
+                    <button class="oauth-btn secondary hidden" id="signOutBtn">Sign out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const authRequired = document.body.dataset.authRequired === 'true';
+        window.authRequired = authRequired;
+        window.isAuthenticated = !authRequired;
+        const attachmentsState = [];
+        window.attachmentsState = attachmentsState;
+
+        window.updateAuthStatus = function (message, isError = false) {
+            const status = document.getElementById('authStatus');
+            if (!status) return;
+            status.textContent = message;
+            status.classList.toggle('error', Boolean(isError));
+        };
+
+        window.setAuthState = function (authenticated, user = null) {
+            const guard = document.getElementById('authGuard');
+            const sendBtn = document.getElementById('sendBtn');
+            const signOutBtn = document.getElementById('signOutBtn');
+
+            window.isAuthenticated = authenticated || !window.authRequired;
+
+            if (window.authRequired && guard) {
+                guard.classList.toggle('hidden', window.isAuthenticated);
+            } else if (guard) {
+                guard.classList.add('hidden');
+            }
+
+            if (sendBtn) {
+                sendBtn.disabled = !window.isAuthenticated;
+            }
+            toggleAttachmentControls(window.isAuthenticated);
+
+            if (signOutBtn) {
+                signOutBtn.classList.toggle('hidden', !authenticated);
+            }
+
+            if (authenticated && user) {
+                const name = user.email || user.phone || 'Signed in';
+                window.updateAuthStatus(`Signed in as ${name}`);
+            } else if (window.authRequired) {
+                window.updateAuthStatus('Use Google, GitHub, or SMS to verify your identity.');
+            }
+        };
+
+        function toggleAttachmentControls(enabled) {
+            const attachBtn = document.getElementById('attachBtn');
+            const fileInput = document.getElementById('fileInput');
+            const profileBtn = document.getElementById('profileUploadBtn');
+            const profileInput = document.getElementById('profileInput');
+            if (attachBtn) attachBtn.disabled = !enabled;
+            if (fileInput) fileInput.disabled = !enabled;
+            if (profileBtn) profileBtn.disabled = !enabled;
+            if (profileInput) profileInput.disabled = !enabled;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const body = document.body.dataset;
+            setBadge('ollamaBadge', body.ollama === 'true');
+            setBadge('groqBadge', body.groq === 'true');
+            setBadge('openaiBadge', body.openai === 'true');
+            updateProvider(body.provider || 'none');
+            setupSidebar();
+            wireConversationSelection();
+            initAttachments();
+            initProfileUpload();
+            window.setAuthState(window.isAuthenticated);
+        });
+
+        function setBadge(id, active) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle('active', active);
+        }
+
+        function usePrompt(text) {
+            const input = document.getElementById('questionInput');
+            input.value = text;
+            askQuestion();
+        }
+
+        function autoGrow(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                askQuestion();
+            }
+        }
+
+        async function askQuestion() {
+            const input = document.getElementById('questionInput');
+            const question = input.value.trim();
+            if (!question) return;
+
+            if (window.authRequired && !window.isAuthenticated) {
+                const guard = document.getElementById('authGuard');
+                guard?.classList.remove('hidden');
+                window.updateAuthStatus('Please sign in to ask a question.', true);
+                return;
+            }
+
+            const welcome = document.getElementById('welcomeScreen');
+            if (welcome) welcome.remove();
+
+            addMessage(question, 'user');
+            input.value = '';
+            autoGrow(input);
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            const loadingId = addMessage('', 'assistant', true);
+            const start = performance.now();
+            const attachmentsPayload = attachmentsState.map(att => ({
+                name: att.name,
+                url: att.url,
+                type: att.type,
+                size: att.size
+            }));
+
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question, attachments: attachmentsPayload })
+                });
+                const data = await response.json();
+                const latency = performance.now() - start;
+                updateLatency(latency);
+
+                removeMessage(loadingId);
+                if (data.error) {
+                    addMessage('Error: ' + data.answer, 'assistant', false, true);
+                } else {
+                    addMessage(data.answer, 'assistant');
+                    updateProvider(data.provider || document.body.dataset.provider || 'none');
+                    clearAttachments();
+                }
+            } catch (error) {
+                removeMessage(loadingId);
+                addMessage('Error: ' + error.message, 'assistant', false, true);
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        function addMessage(content, role, loading = false, isError = false) {
+            const container = document.getElementById('chatMessages');
+            const id = 'msg-' + Date.now();
+
+            const message = document.createElement('div');
+            message.className = `message ${role}`;
+            message.id = id;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+
+            if (loading) {
+                bubble.innerHTML = '<div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+            } else if (isError) {
+                bubble.classList.add('error');
+                bubble.textContent = content;
+            } else {
+                bubble.innerHTML = formatText(content);
+            }
+
+            message.appendChild(bubble);
+            container.appendChild(message);
+            scrollChatToBottom();
+            return id;
+        }
+
+        function scrollChatToBottom() {
+            const container = document.getElementById('chatMessages');
+            if (!container) return;
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            window.requestAnimationFrame(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            });
+        }
+
+        function removeMessage(id) {
+            const node = document.getElementById(id);
+            if (node) node.remove();
+        }
+
+        function formatText(text) {
+            const escaped = text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return escaped.replace(/\n/g, '<br>');
+        }
+
+        function updateProvider(provider) {
+            const label = document.getElementById('activeProvider');
+            document.body.dataset.provider = provider || 'none';
+            if (!label) return;
+            
+            if (!provider || provider === 'none') {
+                label.textContent = 'Not configured';
+            } else {
+                label.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+            }
+        }
+
+        function updateLatency(ms) {
+            const label = document.getElementById('latencyValue');
+            label.textContent = isFinite(ms) ? `${Math.round(ms)} ms` : '—';
+        }
+
+        function initAttachments() {
+            const attachBtn = document.getElementById('attachBtn');
+            const fileInput = document.getElementById('fileInput');
+            if (!attachBtn || !fileInput) return;
+
+            attachBtn.addEventListener('click', () => {
+                if (!canUploadFiles()) return;
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', event => {
+                const files = Array.from(event.target.files || []);
+                if (!files.length) return;
+                files.forEach(file => uploadAttachment(file));
+                fileInput.value = '';
+            });
+
+            renderAttachments();
+        }
+
+        function canUploadFiles() {
+            if (window.authRequired && !window.isAuthenticated) {
+                window.updateAuthStatus('Please sign in before attaching files.', true);
+                return false;
+            }
+            return true;
+        }
+
+        async function uploadAttachment(file) {
+            if (!canUploadFiles()) return;
+            if (file.size > 5 * 1024 * 1024) {
+                window.updateAuthStatus('File too large (max 5 MB).', true);
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                window.updateAuthStatus(`Uploading ${file.name}...`);
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Upload failed');
+                }
+                attachmentsState.push(data);
+                renderAttachments();
+                window.updateAuthStatus(`Attached ${file.name}`);
+            } catch (error) {
+                window.updateAuthStatus(error.message, true);
+            }
+        }
+
+        function renderAttachments() {
+            const list = document.getElementById('attachmentList');
+            if (!list) return;
+
+            if (!attachmentsState.length) {
+                list.innerHTML = '<span class="attachment-placeholder">No files attached.</span>';
+                return;
+            }
+
+            list.innerHTML = attachmentsState.map((att, index) => `
+                <div class="attachment-item">
+                    <div class="attachment-thumb">
+                        ${att.type && att.type.startsWith('image/')
+                            ? `<img src="${att.url}" alt="${att.name}">`
+                            : `<span>${getFileExtension(att.name)}</span>`}
+                    </div>
+                    <div>
+                        <p>${att.name}</p>
+                        <small>${formatBytes(att.size || 0)}</small>
+                    </div>
+                    <button class="attachment-remove" type="button" data-index="${index}" aria-label="Remove attachment">&times;</button>
+                </div>
+            `).join('');
+
+            list.querySelectorAll('.attachment-remove').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = Number(btn.dataset.index);
+                    removeAttachment(idx);
+                });
+            });
+        }
+
+        function removeAttachment(index) {
+            attachmentsState.splice(index, 1);
+            renderAttachments();
+        }
+
+        function clearAttachments() {
+            attachmentsState.length = 0;
+            renderAttachments();
+        }
+
+        function getFileExtension(name = '') {
+            const parts = name.split('.');
+            return parts.length > 1 ? parts.pop().toUpperCase() : 'FILE';
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return '0 B';
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+        }
+
+        function initProfileUpload() {
+            const uploadBtn = document.getElementById('profileUploadBtn');
+            const input = document.getElementById('profileInput');
+            if (!uploadBtn || !input) return;
+
+            uploadBtn.addEventListener('click', () => {
+                if (!canUploadFiles()) return;
+                input.click();
+            });
+
+            input.addEventListener('change', event => {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    window.updateAuthStatus('Please choose an image file.', true);
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = document.getElementById('profilePreview');
+                    const initials = document.getElementById('profileInitials');
+                    if (img && e.target?.result) {
+                        img.src = e.target.result;
+                        img.classList.remove('hidden');
+                    }
+                    initials?.classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function setupSidebar() {
+            const sidebar = document.getElementById('chatSidebar');
+            const openBtn = document.getElementById('sidebarOpen');
+            const closeBtn = document.getElementById('sidebarClose');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (!sidebar) return;
+
+            const openSidebar = () => {
+                sidebar.classList.add('open');
+                overlay?.classList.add('visible');
+            };
+            const closeSidebar = () => {
+                sidebar.classList.remove('open');
+                overlay?.classList.remove('visible');
+            };
+
+            if (openBtn) openBtn.addEventListener('click', openSidebar);
+            if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+            if (overlay) overlay.addEventListener('click', closeSidebar);
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 1024) {
+                    sidebar.classList.remove('open');
+                    overlay?.classList.remove('visible');
+                }
+            });
+        }
+
+        function startNewChat() {
+            const chat = document.getElementById('chatMessages');
+            if (!chat) return;
+
+            chat.innerHTML = `
+                <div class="message assistant" id="welcomeScreen">
+                    <div class="bubble">
+                        New conversation started. Ask me anything!
+                    </div>
+                </div>
+            `;
+
+            const input = document.getElementById('questionInput');
+            if (input) {
+                input.value = '';
+                autoGrow(input);
+            }
+
+            const list = document.getElementById('conversationList');
+            if (list) {
+                const items = list.querySelectorAll('.conversation');
+                items.forEach((item, index) => {
+                    item.classList.toggle('active', index === 0);
+                });
+            }
+
+            clearAttachments();
+            scrollChatToBottom();
+        }
+
+        function wireConversationSelection() {
+            const list = document.getElementById('conversationList');
+            if (!list) return;
+
+            const items = list.querySelectorAll('.conversation');
+            items.forEach((item, index) => {
+                item.addEventListener('click', () => {
+                    items.forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
+                    if (window.innerWidth <= 1024) {
+                        const sidebar = document.getElementById('chatSidebar');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        if (sidebar) sidebar.classList.remove('open');
+                        overlay?.classList.remove('visible');
+                    }
+                });
+                if (index === 0) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        function scrollToSection(id) {
+            const target = document.getElementById(id);
+            if (!target) return;
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    </script>
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
+
+        const SUPABASE_URL = {{ (supabase_url or '') | tojson }};
+        const SUPABASE_ANON_KEY = {{ (supabase_anon_key or '') | tojson }};
+
+        const authRequired = document.body.dataset.authRequired === 'true';
+        const googleBtn = document.getElementById('googleSignIn');
+        const githubBtn = document.getElementById('githubSignIn');
+        const sendOtpBtn = document.getElementById('sendOtpBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const phoneInput = document.getElementById('phoneInput');
+        const otpInput = document.getElementById('otpInput');
+        const signOutBtn = document.getElementById('signOutBtn');
+
+        let supabaseClient = null;
+        let pendingPhone = '';
+
+        function disableAuthUI(message) {
+            window.updateAuthStatus(message, true);
+            [googleBtn, githubBtn, sendOtpBtn, verifyOtpBtn, signOutBtn].forEach(btn => btn?.setAttribute('disabled', 'disabled'));
+            [phoneInput, otpInput].forEach(input => input?.setAttribute('disabled', 'disabled'));
+        }
+
+        async function handleSession() {
+            if (!supabaseClient) return;
+            const { data } = await supabaseClient.auth.getSession();
+            window.setAuthState(Boolean(data.session), data.session?.user || null);
+        }
+
+        async function signInWithProvider(provider) {
+            if (!supabaseClient) return;
+            window.updateAuthStatus(`Redirecting to ${provider}...`);
+            await supabaseClient.auth.signInWithOAuth({
+                provider,
+                options: { redirectTo: window.location.origin }
+            });
+        }
+
+        async function sendOtp() {
+            if (!supabaseClient || !phoneInput) return;
+            const phone = phoneInput.value.trim();
+            if (!phone) {
+                window.updateAuthStatus('Enter a phone number with country code.', true);
+                return;
+            }
+            pendingPhone = phone;
+            window.updateAuthStatus(`Sending code to ${phone}...`);
+            const { error } = await supabaseClient.auth.signInWithOtp({ phone });
+            if (error) {
+                window.updateAuthStatus(error.message, true);
+            } else {
+                window.updateAuthStatus('Code sent. Check your SMS inbox.');
+            }
+        }
+
+        async function verifyOtp() {
+            if (!supabaseClient || !pendingPhone) {
+                window.updateAuthStatus('Send a code first.', true);
+                return;
+            }
+            const token = otpInput?.value.trim();
+            if (!token) {
+                window.updateAuthStatus('Enter the 6-digit code.', true);
+                return;
+            }
+            window.updateAuthStatus('Verifying code...');
+            const { error } = await supabaseClient.auth.verifyOtp({
+                phone: pendingPhone,
+                token,
+                type: 'sms'
+            });
+            if (error) {
+                window.updateAuthStatus(error.message, true);
+            } else {
+                window.updateAuthStatus('Phone verified successfully.');
+            }
+        }
+
+        async function signOut() {
+            if (!supabaseClient) return;
+            await supabaseClient.auth.signOut();
+            pendingPhone = '';
+            window.setAuthState(false);
+        }
+
+        if (!authRequired) {
+            window.setAuthState(true);
+        } else if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+            disableAuthUI('Supabase credentials missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
+        } else {
+            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: { persistSession: true, detectSessionInUrl: true }
+            });
+            window.supabaseClient = supabaseClient;
+
+            handleSession();
+            supabaseClient.auth.onAuthStateChange((_event, session) => {
+                window.setAuthState(Boolean(session), session?.user || null);
+            });
+
+            googleBtn?.addEventListener('click', () => signInWithProvider('google'));
+            githubBtn?.addEventListener('click', () => signInWithProvider('github'));
+            sendOtpBtn?.addEventListener('click', sendOtp);
+            verifyOtpBtn?.addEventListener('click', verifyOtp);
+            signOutBtn?.addEventListener('click', signOut);
+        }
+    </script>
+</body>
+</html>
+
+
