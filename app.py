@@ -142,23 +142,38 @@ class QuestionAnsweringAI:
         web_search_results = ""
         
         if needs_current_info and self.enable_web_search:
-            web_search_results = self._search_web(question)
-            if web_search_results:
-                question = f"{question}\n\n[Current Information from Web Search (2025):\n{web_search_results}\n]"
+            try:
+                web_search_results = self._search_web(question)
+                if web_search_results:
+                    question = f"{question}\n\n[Current Information from Web Search ({current_year}):\n{web_search_results}\n\nIMPORTANT: Use this web search information as your primary source. It is more recent than your training data.]"
+            except Exception as e:
+                print(f"Web search failed for question: {e}")
+                # Continue without web search - don't block the response
         
         system_prompt = f"""You are EDU AI, a friendly and helpful AI assistant with access to current information up to {current_year}.
 
 Current Date: {current_date}
 Current Year: {current_year}
 
-IMPORTANT:
+CRITICAL INSTRUCTIONS:
+- Your training data may have knowledge cutoff dates that are OLDER than {current_date}
+- When web search results are provided in the user's question, you MUST prioritize and use them over your training data
+- Web search results are more recent and accurate than your training knowledge for current events
+- ALWAYS acknowledge when using web search results vs training data
+- If information conflicts, trust web search results over training data
+- When you lack current information and no web search is provided, admit your knowledge may be outdated
 - Be conversational and friendly, especially for casual questions
-- You have access to real-time web search results when provided
-- Always prioritize the most recent and accurate information
-- If web search results are provided, use them to give up-to-date answers
-- Cite sources when referencing specific information
-- For simple questions, give direct, clear answers without over-explaining
-- For greetings or casual conversation, be warm and brief
+
+WEB SEARCH USAGE:
+- If the user's question contains "[Current Information from Web Search", those are REAL-TIME search results
+- USE those results as your primary source of information
+- Cite the sources from web search results when available
+- Mention that the information comes from recent web search if applicable
+
+KNOWLEDGE LIMITS:
+- If asked about recent events (after your training cutoff) and no web search provided, say: "My knowledge may be outdated. Let me search for the latest information."
+- Always be honest about when information might be outdated
+- For time-sensitive questions (prices, dates, current status), emphasize checking web search results
 
 Guidelines:
 - Use step-by-step reasoning for complex topics
@@ -415,10 +430,24 @@ Solved exactly with SymPy before calling any external AI API."""
             
         question_lower = question.lower()
         current_keywords = [
-            "current", "latest", "recent", "now", "today", "2025", "2024",
+            # Time-based keywords
+            "current", "latest", "recent", "now", "today", "2025", "2024", "2026",
             "news", "update", "happening", "trending", "newest", "latest news",
             "what's new", "recent developments", "current events", "breaking",
-            "this year", "this month", "recently", "as of", "up to date"
+            "this year", "this month", "recently", "as of", "up to date",
+            # Action/change keywords
+            "announce", "release", "launch", "introduce", "unveil", "reveal",
+            "price", "cost", "worth", "value", "stock", "market",
+            # Status keywords
+            "status", "state", "condition", "situation", "circumstance",
+            # Question types that often need current info
+            "who is", "who are", "what is the current", "what are the latest",
+            "when did", "when will", "how much is", "how many are",
+            # Domain-specific that change frequently
+            "election", "president", "leader", "government", "policy",
+            "technology", "software", "app", "version", "update",
+            "sport", "game", "match", "score", "tournament",
+            "weather", "forecast", "temperature"
         ]
         return any(keyword in question_lower for keyword in current_keywords)
     
@@ -427,12 +456,20 @@ Solved exactly with SymPy before calling any external AI API."""
         try:
             # Try Tavily API first (better quality, requires API key)
             if self.tavily_api_key:
-                return self._search_tavily(query, max_results)
+                tavily_result = self._search_tavily(query, max_results)
+                if tavily_result:
+                    return tavily_result
             
             # Fallback to DuckDuckGo (free, no API key needed)
-            return self._search_duckduckgo(query, max_results)
+            ddg_result = self._search_duckduckgo(query, max_results)
+            if ddg_result:
+                return ddg_result
+            
+            # If both fail, return empty (caller should handle gracefully)
+            return ""
         except Exception as e:
             print(f"Web search error: {e}")
+            # Don't raise - return empty string so AI can still respond
             return ""
     
     def _search_tavily(self, query: str, max_results: int = 5) -> str:
@@ -476,7 +513,17 @@ Solved exactly with SymPy before calling any external AI API."""
             from duckduckgo_search import DDGS
             
             with DDGS() as ddgs:
+                # Use text search for general queries
                 results = list(ddgs.text(query, max_results=max_results))
+                
+                if not results:
+                    # Try news search if no text results (better for current events)
+                    try:
+                        news_results = list(ddgs.news(query, max_results=max_results))
+                        if news_results:
+                            results = news_results
+                    except Exception:
+                        pass
                 
                 if not results:
                     return ""
@@ -484,30 +531,36 @@ Solved exactly with SymPy before calling any external AI API."""
                 formatted_results = []
                 for i, result in enumerate(results, 1):
                     title = result.get("title", "")
-                    url = result.get("href", "")
-                    body = result.get("body", "")
+                    url = result.get("href", "") or result.get("url", "")
+                    body = result.get("body", "") or result.get("snippet", "") or result.get("description", "")
                     if body:
                         formatted_results.append(
-                            f"{i}. {title} ({url})\n   {body[:300]}..."
+                            f"{i}. {title} ({url})\n   {body[:400]}..."
+                        )
+                    elif title:  # Include even if no body
+                        formatted_results.append(
+                            f"{i}. {title} ({url})"
                         )
                 
                 return "\n\n".join(formatted_results) if formatted_results else ""
         except ImportError:
-            # Fallback to simple requests-based search
+            # Fallback: try to install or use alternative
+            print("duckduckgo-search package not found. Install with: pip install duckduckgo-search")
             try:
                 # Use DuckDuckGo HTML search as fallback
                 search_url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
                 response = requests.get(search_url, timeout=10, headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 })
                 if response.status_code == 200:
                     # Simple extraction (basic fallback)
-                    return f"Web search performed for: {query}\n(Results available but parsing limited - install duckduckgo-search for better results)"
+                    return f"Web search performed for: {query}\n(Install duckduckgo-search package for better results: pip install duckduckgo-search)"
             except Exception:
                 pass
             return ""
         except Exception as e:
             print(f"DuckDuckGo search error: {e}")
+            # Try to continue - maybe it's a temporary issue
             return ""
     
     def _messages_to_prompt(self, messages: List[Dict[str, str]]) -> str:
@@ -621,23 +674,38 @@ Solved exactly with SymPy before calling any external AI API."""
         if needs_current_info and self.enable_web_search:
             # Send a message that we're searching
             yield f"data: {json.dumps({'type': 'status', 'content': '🔍 Searching for current information...', 'provider': 'web-search'})}\n\n"
-            web_search_results = self._search_web(question)
-            if web_search_results:
-                question = f"{question}\n\n[Current Information from Web Search (2025):\n{web_search_results}\n]"
+            try:
+                web_search_results = self._search_web(question)
+                if web_search_results:
+                    question = f"{question}\n\n[Current Information from Web Search ({current_year}):\n{web_search_results}\n\nIMPORTANT: Use this web search information as your primary source. It is more recent than your training data.]"
+            except Exception as e:
+                print(f"Web search failed for question: {e}")
+                # Continue without web search - don't block the response
         
         system_prompt = f"""You are EDU AI, a friendly and helpful AI assistant with access to current information up to {current_year}.
 
 Current Date: {current_date}
 Current Year: {current_year}
 
-IMPORTANT:
+CRITICAL INSTRUCTIONS:
+- Your training data may have knowledge cutoff dates that are OLDER than {current_date}
+- When web search results are provided in the user's question, you MUST prioritize and use them over your training data
+- Web search results are more recent and accurate than your training knowledge for current events
+- ALWAYS acknowledge when using web search results vs training data
+- If information conflicts, trust web search results over training data
+- When you lack current information and no web search is provided, admit your knowledge may be outdated
 - Be conversational and friendly, especially for casual questions
-- You have access to real-time web search results when provided
-- Always prioritize the most recent and accurate information
-- If web search results are provided, use them to give up-to-date answers
-- Cite sources when referencing specific information
-- For simple questions, give direct, clear answers without over-explaining
-- For greetings or casual conversation, be warm and brief
+
+WEB SEARCH USAGE:
+- If the user's question contains "[Current Information from Web Search", those are REAL-TIME search results
+- USE those results as your primary source of information
+- Cite the sources from web search results when available
+- Mention that the information comes from recent web search if applicable
+
+KNOWLEDGE LIMITS:
+- If asked about recent events (after your training cutoff) and no web search provided, say: "My knowledge may be outdated. Let me search for the latest information."
+- Always be honest about when information might be outdated
+- For time-sensitive questions (prices, dates, current status), emphasize checking web search results
 
 Guidelines:
 - Use step-by-step reasoning for complex topics

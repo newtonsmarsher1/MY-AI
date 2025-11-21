@@ -2,7 +2,6 @@ flask==3.0.0
 openai>=1.0.0
 python-dotenv==1.0.0
 requests>=2.31.0
-vercel-wsgi==0.8.0
 sympy==1.13.2
 duckduckgo-search>=6.0.0
 gunicorn==21.2.0
