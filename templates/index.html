@@ -756,7 +756,7 @@
 >
     <div class="startup-overlay" id="startupOverlay" aria-live="polite">
         <img src="{{ url_for('static', filename='EDU AI.png') }}" alt="EDU AI logo" loading="eager">
-        <p>Waking up your EDU AI workspace. This keeps Render logs hidden while the app starts.</p>
+        <p>Welcome! Please wait a few moments while we finish preparing your EDU AI workspace.</p>
         <div class="loading" aria-hidden="true">
             <div class="dot"></div>
             <div class="dot"></div>
@@ -935,7 +935,6 @@
         }
 
         window.addEventListener('load', scheduleStartupOverlayRelease);
-        setTimeout(() => hideStartupOverlay(true), 15000);
         window.hideStartupOverlay = hideStartupOverlay;
 
         window.updateAuthStatus = function (message, isError = false) {
@@ -997,7 +996,6 @@
             initAttachments();
             initProfileUpload();
             window.setAuthState(window.isAuthenticated);
-            scheduleStartupOverlayRelease();
         });
 
         function setBadge(id, active) {
