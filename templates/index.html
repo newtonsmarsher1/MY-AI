@@ -156,40 +156,44 @@
 
         .wave-line {
             position: relative;
-            width: min(420px, 90vw);
-            height: 110px;
+            width: min(460px, 92vw);
+            height: 120px;
             margin-top: 16px;
             margin-bottom: 4px;
             overflow: hidden;
-            filter: drop-shadow(0 10px 20px rgba(37, 99, 235, 0.15));
+            filter: drop-shadow(0 10px 26px rgba(37, 99, 235, 0.18));
         }
 
         .wave-line-layer {
             position: absolute;
             top: 0;
-            left: -30%;
-            width: 170%;
+            left: -60%;
+            width: 220%;
             height: 100%;
-            animation: waveLineSlide 7s linear infinite;
+            animation: waveLineSlide 6s linear infinite;
         }
 
         .wave-line-layer.fast {
-            animation-duration: 5s;
-            animation-direction: alternate;
-            opacity: 0.8;
+            animation-duration: 4s;
+            opacity: 0.85;
         }
 
         .wave-line-layer path {
-            fill: rgba(59, 130, 246, 0.35);
+            fill: none;
+            stroke: rgba(59, 130, 246, 0.35);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         .wave-line-layer.fast path {
-            fill: rgba(14, 165, 233, 0.45);
+            stroke: rgba(14, 165, 233, 0.5);
+            stroke-width: 3;
         }
 
         @keyframes waveLineSlide {
-            0% { transform: translateX(10%); }
-            100% { transform: translateX(-20%); }
+            0% { transform: translateX(30%); }
+            100% { transform: translateX(-30%); }
         }
 
         body.app-loading .shell {
