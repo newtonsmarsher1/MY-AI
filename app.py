@@ -57,7 +57,7 @@ TEXTUAL_EXTENSIONS = {
 }
 
 DEFAULT_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.65"))
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile")  # Updated to newer model
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.2-11b-instruct")  # Updated: llama-3.1-70b-versatile was decommissioned
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Updated to 2025 model
 CHAT_HISTORY_LIMIT = int(os.getenv("CHAT_HISTORY_LIMIT", "6"))
 MAX_ATTACHMENT_CONTEXT_CHARS = int(os.getenv("ATTACHMENT_CONTEXT_CHARS", "1200"))
@@ -636,14 +636,39 @@ Solved exactly with SymPy before calling any external AI API."""
             raise Exception("Ollama not running. Start it or install from https://ollama.ai")
     
     def _try_groq(self, messages: List[Dict[str, str]]):
-        """Try Groq (free API tier)"""
-        response = self.groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=2048
-        )
-        return response.choices[0].message.content
+        """Try Groq (free API tier) with fallback models"""
+        # List of models to try in order
+        models_to_try = [
+            GROQ_MODEL,  # User's preferred model or default
+            "llama-3.2-11b-instruct",  # Stable default
+            "llama-3.2-3b-instruct",  # Smaller fallback
+            "llama-3.3-70b-versatile",  # Larger model if available
+            "mixtral-8x7b-32768",  # Alternative model
+        ]
+        
+        last_error = None
+        for model in models_to_try:
+            try:
+                response = self.groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=2048
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                error_str = str(e).lower()
+                # If model is decommissioned or not found, try next
+                if "decommissioned" in error_str or "not found" in error_str or "invalid" in error_str:
+                    last_error = e
+                    continue
+                # For other errors, raise immediately
+                raise
+        
+        # If all models failed, raise the last error
+        if last_error:
+            raise Exception(f"All Groq models failed. Last error: {str(last_error)}. Available models: llama-3.2-11b-instruct, llama-3.2-3b-instruct, llama-3.3-70b-versatile")
+        raise Exception("No Groq models available")
     
     def _try_openai(self, messages: List[Dict[str, str]]):
         """Try OpenAI"""
@@ -779,17 +804,43 @@ To use this app for FREE, choose one option:
         yield f"data: {json.dumps({'type': 'error', 'content': error_msg})}\n\n"
     
     def _stream_groq(self, messages: List[Dict[str, str]]) -> Iterator[str]:
-        """Stream from Groq"""
-        stream = self.groq_client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=messages,
-            temperature=self.temperature,
-            max_tokens=2048,
-            stream=True
-        )
-        for chunk in stream:
-            if chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        """Stream from Groq with fallback models"""
+        # List of models to try in order
+        models_to_try = [
+            GROQ_MODEL,  # User's preferred model or default
+            "llama-3.2-11b-instruct",  # Stable default
+            "llama-3.2-3b-instruct",  # Smaller fallback
+            "llama-3.3-70b-versatile",  # Larger model if available
+            "mixtral-8x7b-32768",  # Alternative model
+        ]
+        
+        last_error = None
+        for model in models_to_try:
+            try:
+                stream = self.groq_client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=self.temperature,
+                    max_tokens=2048,
+                    stream=True
+                )
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        yield chunk.choices[0].delta.content
+                return  # Success - exit after streaming
+            except Exception as e:
+                error_str = str(e).lower()
+                # If model is decommissioned or not found, try next
+                if "decommissioned" in error_str or "not found" in error_str or "invalid" in error_str:
+                    last_error = e
+                    continue
+                # For other errors, raise immediately
+                raise
+        
+        # If all models failed, raise the last error
+        if last_error:
+            raise Exception(f"All Groq models failed. Last error: {str(last_error)}. Available models: llama-3.2-11b-instruct, llama-3.2-3b-instruct, llama-3.3-70b-versatile")
+        raise Exception("No Groq models available")
     
     def _stream_openai(self, messages: List[Dict[str, str]]) -> Iterator[str]:
         """Stream from OpenAI"""

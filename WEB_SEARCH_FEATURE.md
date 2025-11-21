@@ -11,7 +11,7 @@ Your EDU AI now has **real-time web search capabilities** to fetch up-to-date in
 - Works with streaming responses
 
 ### ✅ Updated AI Models
-- **Groq**: Updated to `llama-3.1-70b-versatile` (better performance)
+- **Groq**: Updated to `llama-3.2-11b-instruct` (current model)
 - **OpenAI**: Updated to `gpt-4o-mini` (2025 knowledge cutoff)
 - Both models now have access to current date context
 
@@ -69,7 +69,7 @@ ENABLE_WEB_SEARCH=false  # Disable
 ### Update Models
 In `.env` file:
 ```
-GROQ_MODEL=llama-3.1-70b-versatile
+GROQ_MODEL=llama-3.2-11b-instruct
 OPENAI_MODEL=gpt-4o-mini
 ```
 

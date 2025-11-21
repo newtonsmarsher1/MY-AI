@@ -61,7 +61,7 @@ git push -u origin main
    SUPABASE_ANON_KEY=your-supabase-key
    AI_TEMPERATURE=0.65
    ENABLE_WEB_SEARCH=true
-   GROQ_MODEL=llama-3.1-70b-versatile
+   GROQ_MODEL=llama-3.2-11b-instruct
    OPENAI_MODEL=gpt-4o-mini
    ```
 
@@ -116,7 +116,7 @@ AI/
 - `SUPABASE_ANON_KEY` - For authentication
 - `AI_TEMPERATURE` - Default: 0.65
 - `ENABLE_WEB_SEARCH` - Default: true
-- `GROQ_MODEL` - Default: llama-3.1-70b-versatile
+- `GROQ_MODEL` - Default: llama-3.2-11b-instruct
 - `OPENAI_MODEL` - Default: gpt-4o-mini
 
 ## 🗂️ Static Files & Uploads
