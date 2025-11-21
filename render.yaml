@@ -14,6 +14,7 @@ services:
         value: true
       # Add your API keys in Render dashboard:
       # - GROQ_API_KEY
+      # - GROQ_MODEL=llama-3.2-11b-instruct (default, can override)
       # - OPENAI_API_KEY (optional)
       # - TAVILY_API_KEY (optional)
       # - SUPABASE_URL (optional)

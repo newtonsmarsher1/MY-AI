@@ -57,7 +57,14 @@ TEXTUAL_EXTENSIONS = {
 }
 
 DEFAULT_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.65"))
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.2-11b-instruct")  # Updated: llama-3.1-70b-versatile was decommissioned
+# Groq model - if GROQ_MODEL env var is set to old model, it will be overridden by fallback logic
+GROQ_MODEL_ENV = os.getenv("GROQ_MODEL", "").strip()
+if GROQ_MODEL_ENV and "llama-3.1-70b-versatile" in GROQ_MODEL_ENV:
+    # Old decommissioned model detected - use new default instead
+    print(f"⚠️ Warning: GROQ_MODEL set to decommissioned model '{GROQ_MODEL_ENV}'. Using 'llama-3.2-11b-instruct' instead.")
+    GROQ_MODEL = "llama-3.2-11b-instruct"
+else:
+    GROQ_MODEL = GROQ_MODEL_ENV or "llama-3.2-11b-instruct"  # Default to new model
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Updated to 2025 model
 CHAT_HISTORY_LIMIT = int(os.getenv("CHAT_HISTORY_LIMIT", "6"))
 MAX_ATTACHMENT_CONTEXT_CHARS = int(os.getenv("ATTACHMENT_CONTEXT_CHARS", "1200"))
