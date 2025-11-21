@@ -63,6 +63,7 @@
             transition: opacity 0.6s ease;
             text-align: center;
             padding: 40px 24px;
+            overflow: hidden;
         }
 
         body.app-loading .startup-overlay {
@@ -81,6 +82,114 @@
             font-size: 1rem;
             color: var(--muted);
             max-width: 360px;
+        }
+
+        .wave-strings {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: -1;
+            filter: blur(0.5px);
+        }
+
+        .wave-string {
+            position: absolute;
+            left: 50%;
+            width: 160%;
+            height: 160px;
+            border-radius: 999px;
+            transform-origin: center;
+            opacity: 0.45;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.55), rgba(14, 165, 233, 0.25));
+            box-shadow: 0 0 40px rgba(14, 165, 233, 0.35);
+            animation: waveDrift 9s ease-in-out infinite;
+            --rotate: 0deg;
+            --fromY: -10%;
+            --midY: 6%;
+        }
+
+        .wave-string:nth-child(1) {
+            top: 15%;
+            animation-duration: 10s;
+            --rotate: 8deg;
+            --fromY: -22%;
+            --midY: 4%;
+        }
+
+        .wave-string:nth-child(2) {
+            top: 45%;
+            height: 200px;
+            opacity: 0.35;
+            animation-duration: 8s;
+            animation-delay: -2s;
+            background: linear-gradient(90deg, rgba(59, 130, 246, 0.4), rgba(96, 165, 250, 0.15));
+            --rotate: -4deg;
+            --fromY: -12%;
+            --midY: 8%;
+        }
+
+        .wave-string:nth-child(3) {
+            top: 70%;
+            height: 140px;
+            opacity: 0.5;
+            animation-duration: 11s;
+            animation-delay: -1s;
+            background: linear-gradient(90deg, rgba(14, 165, 233, 0.4), rgba(59, 130, 246, 0.2));
+            --rotate: 2deg;
+            --fromY: -6%;
+            --midY: 10%;
+        }
+
+        @keyframes waveDrift {
+            0% {
+                transform: translate(-50%, var(--fromY, -10%)) rotate(var(--rotate, 0deg)) scaleX(0.95);
+            }
+            50% {
+                transform: translate(-50%, var(--midY, 5%)) rotate(calc(var(--rotate, 0deg) + 6deg)) scaleX(1.02);
+                opacity: 0.55;
+            }
+            100% {
+                transform: translate(-50%, var(--fromY, -10%)) rotate(var(--rotate, 0deg)) scaleX(0.95);
+            }
+        }
+
+        .wave-line {
+            position: relative;
+            width: min(420px, 90vw);
+            height: 110px;
+            margin-top: 16px;
+            margin-bottom: 4px;
+            overflow: hidden;
+            filter: drop-shadow(0 10px 20px rgba(37, 99, 235, 0.15));
+        }
+
+        .wave-line-layer {
+            position: absolute;
+            top: 0;
+            left: -30%;
+            width: 170%;
+            height: 100%;
+            animation: waveLineSlide 7s linear infinite;
+        }
+
+        .wave-line-layer.fast {
+            animation-duration: 5s;
+            animation-direction: alternate;
+            opacity: 0.8;
+        }
+
+        .wave-line-layer path {
+            fill: rgba(59, 130, 246, 0.35);
+        }
+
+        .wave-line-layer.fast path {
+            fill: rgba(14, 165, 233, 0.45);
+        }
+
+        @keyframes waveLineSlide {
+            0% { transform: translateX(10%); }
+            100% { transform: translateX(-20%); }
         }
 
         body.app-loading .shell {
@@ -767,8 +876,21 @@
     data-supabase-anon="{{ supabase_anon_key or '' }}"
 >
     <div class="startup-overlay" id="startupOverlay" aria-live="polite">
+        <div class="wave-strings" aria-hidden="true">
+            <span class="wave-string"></span>
+            <span class="wave-string"></span>
+            <span class="wave-string"></span>
+        </div>
         <img src="{{ url_for('static', filename='EDU AI.png') }}" alt="EDU AI logo" loading="eager">
         <p>Hello there, and welcome to EDU AI! Please wait a few moments while we finish preparing your workspace.</p>
+        <div class="wave-line" aria-hidden="true">
+            <svg class="wave-line-layer slow" viewBox="0 0 1600 160" preserveAspectRatio="none">
+                <path d="M0 120 C 150 60 300 180 450 110 C 600 40 750 170 900 100 C 1050 30 1200 160 1350 90 L 1600 160 L 0 160 Z"></path>
+            </svg>
+            <svg class="wave-line-layer fast" viewBox="0 0 1600 160" preserveAspectRatio="none">
+                <path d="M0 100 C 200 20 400 160 600 90 C 800 20 1000 150 1200 80 C 1400 10 1600 140 1600 70 L 1600 160 L 0 160 Z"></path>
+            </svg>
+        </div>
         <div class="loading" aria-hidden="true">
             <div class="dot"></div>
             <div class="dot"></div>
@@ -923,7 +1045,7 @@
         const attachmentsState = [];
         window.attachmentsState = attachmentsState;
 
-        const STARTUP_MIN_DURATION = 2000;
+        const STARTUP_MIN_DURATION = 6000;
         const startupOverlayStart = (window.performance && performance.now) ? performance.now() : Date.now();
         let startupOverlayDismissed = false;
         let resourcesLoaded = false;
