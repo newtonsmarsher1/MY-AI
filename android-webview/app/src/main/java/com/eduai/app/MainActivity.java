@@ -9,8 +9,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
     
-    // TODO: Replace with your deployed Flask app URL
-    private static final String APP_URL = "https://your-app-url.vercel.app";
+    // Render deployment URL
+    private static final String APP_URL = "https://my-ai-utbb.onrender.com";
     
     private WebView webView;
 
