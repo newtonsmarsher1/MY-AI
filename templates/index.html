@@ -57,7 +57,7 @@
             align-items: center;
             justify-content: center;
             gap: 16px;
-            z-index: 1000;
+            z-index: 99999;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.6s ease;
@@ -85,9 +85,21 @@
 
         body.app-loading .shell {
             opacity: 0;
+            visibility: hidden;
             transform: translateY(12px);
             filter: blur(6px);
             pointer-events: none;
+            position: relative;
+            z-index: -1;
+        }
+        
+        body.app-loading::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            z-index: 99998;
+            pointer-events: auto;
         }
 
         body {
@@ -911,23 +923,67 @@
         const attachmentsState = [];
         window.attachmentsState = attachmentsState;
 
-        const STARTUP_MIN_DURATION = 1600;
+        const STARTUP_MIN_DURATION = 2000;
         const startupOverlayStart = (window.performance && performance.now) ? performance.now() : Date.now();
         let startupOverlayDismissed = false;
+        let resourcesLoaded = false;
+        let domReady = false;
+
+        // Hide console logs during loading
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        function suppressConsole() {
+            console.log = function() {};
+            console.error = function() {};
+            console.warn = function() {};
+        }
+        
+        function restoreConsole() {
+            console.log = originalLog;
+            console.error = originalError;
+            console.warn = originalWarn;
+        }
+        
+        suppressConsole();
 
         function hideStartupOverlay(force = false) {
             if (startupOverlayDismissed && !force) return;
             startupOverlayDismissed = true;
+            restoreConsole();
             document.body.classList.remove('app-loading');
             const overlay = document.getElementById('startupOverlay');
             if (overlay) {
                 overlay.setAttribute('aria-hidden', 'true');
                 overlay.style.pointerEvents = 'none';
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                }, 600);
+            }
+            const shell = document.querySelector('.shell');
+            if (shell) {
+                shell.style.opacity = '1';
+                shell.style.visibility = 'visible';
+                shell.style.transform = 'translateY(0)';
+                shell.style.filter = 'blur(0)';
+                shell.style.pointerEvents = 'auto';
+                shell.style.position = 'relative';
+                shell.style.zIndex = 'auto';
             }
         }
 
         function scheduleStartupOverlayRelease() {
             if (startupOverlayDismissed) return;
+            resourcesLoaded = true;
+            checkIfReadyToHide();
+        }
+        
+        function checkIfReadyToHide() {
+            if (startupOverlayDismissed) return;
+            if (!resourcesLoaded || !domReady) return;
+            
             const now = (window.performance && performance.now) ? performance.now() : Date.now();
             const elapsed = now - startupOverlayStart;
             const delay = Math.max(0, STARTUP_MIN_DURATION - elapsed);
@@ -986,6 +1042,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            domReady = true;
+            checkIfReadyToHide();
+            
             const body = document.body.dataset;
             setBadge('ollamaBadge', body.ollama === 'true');
             setBadge('groqBadge', body.groq === 'true');
