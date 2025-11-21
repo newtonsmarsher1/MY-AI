@@ -44,6 +44,52 @@
             display: none !important;
         }
 
+        body.app-loading {
+            overflow: hidden;
+        }
+
+        .startup-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+            text-align: center;
+            padding: 40px 24px;
+        }
+
+        body.app-loading .startup-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .startup-overlay img {
+            width: min(240px, 60vw);
+            height: auto;
+            filter: drop-shadow(0 20px 40px rgba(15, 23, 42, 0.15));
+            animation: logoFloat 4s ease-in-out infinite;
+        }
+
+        .startup-overlay p {
+            font-size: 1rem;
+            color: var(--muted);
+            max-width: 360px;
+        }
+
+        body.app-loading .shell {
+            opacity: 0;
+            transform: translateY(12px);
+            filter: blur(6px);
+            pointer-events: none;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background: var(--bg);
@@ -59,6 +105,7 @@
             display: grid;
             grid-template-columns: 280px 1fr;
             gap: 24px;
+            transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
         }
 
         .chat-sidebar {
@@ -632,6 +679,11 @@
             font-size: 1rem;
         }
 
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
         @keyframes fade {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -693,12 +745,24 @@
     </style>
 </head>
 <body
+    class="app-loading"
     data-provider="{{ provider or 'none' }}"
     data-ollama="{{ 'true' if ollama_available else 'false' }}"
     data-groq="{{ 'true' if groq_available else 'false' }}"
     data-openai="{{ 'true' if openai_available else 'false' }}"
     data-auth-required="{{ 'true' if auth_required else 'false' }}"
+    data-supabase-url="{{ supabase_url or '' }}"
+    data-supabase-anon="{{ supabase_anon_key or '' }}"
 >
+    <div class="startup-overlay" id="startupOverlay" aria-live="polite">
+        <img src="{{ url_for('static', filename='EDU AI.png') }}" alt="EDU AI logo" loading="eager">
+        <p>Waking up your EDU AI workspace. This keeps Render logs hidden while the app starts.</p>
+        <div class="loading" aria-hidden="true">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
+    </div>
     <div class="shell">
         <aside class="chat-sidebar" id="chatSidebar">
             <div class="sidebar-header">
@@ -758,7 +822,7 @@
                 </div>
                 <div class="status">
                     <div class="badge" id="ollamaBadge">Ollama</div>
-                    <div class="badge" id="groqBadge">Groq</div>
+                    <div class="badge" id="groqBadge">Edu AI</div>
                     <div class="badge" id="openaiBadge">OpenAI</div>
                 </div>
             </header>
@@ -847,6 +911,33 @@
         const attachmentsState = [];
         window.attachmentsState = attachmentsState;
 
+        const STARTUP_MIN_DURATION = 1600;
+        const startupOverlayStart = (window.performance && performance.now) ? performance.now() : Date.now();
+        let startupOverlayDismissed = false;
+
+        function hideStartupOverlay(force = false) {
+            if (startupOverlayDismissed && !force) return;
+            startupOverlayDismissed = true;
+            document.body.classList.remove('app-loading');
+            const overlay = document.getElementById('startupOverlay');
+            if (overlay) {
+                overlay.setAttribute('aria-hidden', 'true');
+                overlay.style.pointerEvents = 'none';
+            }
+        }
+
+        function scheduleStartupOverlayRelease() {
+            if (startupOverlayDismissed) return;
+            const now = (window.performance && performance.now) ? performance.now() : Date.now();
+            const elapsed = now - startupOverlayStart;
+            const delay = Math.max(0, STARTUP_MIN_DURATION - elapsed);
+            setTimeout(() => hideStartupOverlay(), delay);
+        }
+
+        window.addEventListener('load', scheduleStartupOverlayRelease);
+        setTimeout(() => hideStartupOverlay(true), 15000);
+        window.hideStartupOverlay = hideStartupOverlay;
+
         window.updateAuthStatus = function (message, isError = false) {
             const status = document.getElementById('authStatus');
             if (!status) return;
@@ -906,6 +997,7 @@
             initAttachments();
             initProfileUpload();
             window.setAuthState(window.isAuthenticated);
+            scheduleStartupOverlayRelease();
         });
 
         function setBadge(id, active) {
@@ -1436,10 +1528,10 @@
     <script type="module">
         import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.46.1';
 
-        const SUPABASE_URL = {{ (supabase_url or '') | tojson }};
-        const SUPABASE_ANON_KEY = {{ (supabase_anon_key or '') | tojson }};
+        const SUPABASE_URL = document.body.dataset.supabaseUrl || '';
+        const SUPABASE_ANON_KEY = document.body.dataset.supabaseAnon || '';
 
-        const authRequired = document.body.dataset.authRequired === 'true';
+        const authGuardRequired = window.authRequired ?? (document.body.dataset.authRequired === 'true');
         const googleBtn = document.getElementById('googleSignIn');
         const githubBtn = document.getElementById('githubSignIn');
         const sendOtpBtn = document.getElementById('sendOtpBtn');
@@ -1519,7 +1611,7 @@
             window.setAuthState(false);
         }
 
-        if (!authRequired) {
+        if (!authGuardRequired) {
             window.setAuthState(true);
         } else if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
             disableAuthUI('Supabase credentials missing. Set SUPABASE_URL and SUPABASE_ANON_KEY.');
